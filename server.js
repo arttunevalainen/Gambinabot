@@ -1,23 +1,54 @@
 
+/**
+ * Arttu Nevalainen
+ * 2018
+ */
 
 const axios = require('axios');
 const Bot = require('node-telegram-bot-api');
-const token = "625526793:AAE5fbK2FNeYyoZV_MP_wn-S5Qhj2zS0-7Y";
+const token = require('./token.json').token;
 
 
 const bot = new Bot(token, {polling: true});
 
 
+/** Bot message function. Gets all messages of the channel and waits for call "@gambinabot"
+ * SHOULD BE CHANGED!
+ */
 bot.on('message', (msg) => {
-    getAlko(msg.text).then((alko) => {
-        bot.sendMessage(msg.chat.id, alko.alko + " " + alko.lkm);
-    })
+    let message = msg.text.split(" ");
+
+    if(message[0] === "@gambinabot") {
+        //Help response
+        if(message[1].toLowerCase() === "help") {
+            bot.sendMessage(msg.chat.id, "Anna kaupungin nimi esim. @gambinabot Tampere");
+        }
+        //The rest...
+        else {
+            getAlko(msg.text).then((alkot) => {
+                if(alkot === "Alkoa ei löytynyt") {
+                    bot.sendMessage(msg.chat.id, alkot);
+                }
+                else if(alkot.length > 0) {
+                    bot.sendMessage(msg.chat.id, "Gambinaa on: \n" + alkot);
+                }
+                else {
+                    bot.sendMessage(msg.chat.id, "Virhe. Ilmoita ylläpidolle");
+                }
+            });
+        }
+    }
 });
 
 let alkot = [];
 getData();
+setTimeout(getData, 600000);
 
+
+/** Fetch gambina data from alko.fi */
 function getData() {
+    alkot = [];
+
     axios.get('https://www.alko.fi/INTERSHOP/web/WFS/Alko-OnlineShop-Site/fi_FI/-/EUR/ViewProduct-Include?SKU=319027').then((res) => {
 
         let wasd = res.data.split("</a>");
@@ -41,32 +72,35 @@ function getData() {
     });
 }
 
+/** Search for given city and return all alkos in that city */
 async function getAlko(alkoname) {
-    alkoname = alkoname.split(" ");
-    let found = null;
+    try {
+        alkoname = alkoname.split(" ");
+        let kaupungit= [];
 
-    alkot.forEach(alko => {
-        console.log(alko);
-        let splittedalko = alko.alko.split(" ");
+        alkot.forEach(alko => {
+            let splittedalko = alko.alko.split(" ");
 
-        if(splittedalko[0] === alkoname[1]) {
-            console.log("found!");
-            found = alko;
-        }
-        else if(splittedalko[1] === alkoname[1]) {
-            console.log("found!");
-            found = alko;
-        }
-        else if(splittedalko[2] === alkoname[1]) {
-            console.log("found!");
-            found = alko;
-        }
-    });
+            if(splittedalko[0].toLowerCase() === alkoname[1].toLowerCase()) {
+                kaupungit.push(alko);
+            }
+        });
 
-    if(found != null) {
-        return found;
+        if(kaupungit.length > 0) {
+            console.log(kaupungit);
+            let response = "";
+
+            for(let i = 0; i < kaupungit.length; i++) {
+                response = response + kaupungit[i].alko + " " + kaupungit[i].lkm + "\n";
+            }
+
+            return response;
+        }
+        else {
+            return "Alkoa ei löytynyt";
+        }
     }
-    else {
-        return {alko: "Alko not found.", lkm: "" };
+    catch(e) {
+        return "";
     }
 }
